@@ -19,6 +19,8 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Constants
+ADMIN_ROLE_ID = 1367888281622151188  # Administrator role ID
 ROLE_OPTIONS = {
     "🟦": "Worker",
     "🟩": "Customer"
@@ -104,7 +106,7 @@ async def ticket(interaction, order_text):
 
         embed = discord.Embed(
             title="New Order Request",
-            description=f"{customer.mention} submitted an order:\n\n```{order_text}```",
+            description=f"{customer.mention} submitted an order:\n\n``````",
             color=discord.Color.orange(),
             timestamp=datetime.utcnow()
         )
@@ -117,14 +119,19 @@ async def ticket(interaction, order_text):
 
             @discord.ui.button(label="Approve", style=discord.ButtonStyle.green, emoji="✅")
             async def approve(self, interaction: discord.Interaction, button: Button):
-                if not discord.utils.get(interaction.user.roles, name="Administrator"):
+                # Check for administrator role by ID
+                admin_role = guild.get_role(ADMIN_ROLE_ID)
+                if not admin_role or admin_role not in interaction.user.roles:
                     await interaction.response.send_message("❌ You don't have permission.", ephemeral=True)
                     return
 
+                worker_role = discord.utils.get(guild.roles, name="Worker")
+                admin_role = guild.get_role(ADMIN_ROLE_ID)
+
                 overwrites = {
                     guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                    discord.utils.get(guild.roles, name="Worker"): discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    discord.utils.get(guild.roles, name="Administrator"): discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                    worker_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                    admin_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
                     guild.owner: discord.PermissionOverwrite(read_messages=True, send_messages=True),
                     guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
                 }
@@ -149,7 +156,8 @@ async def ticket(interaction, order_text):
 
                     @discord.ui.button(label="Cancel Ticket", style=discord.ButtonStyle.danger, emoji="🗑️")
                     async def cancel_ticket(self, interaction: discord.Interaction, button: Button):
-                        is_admin = discord.utils.get(interaction.user.roles, name="Administrator")
+                        admin_role = guild.get_role(ADMIN_ROLE_ID)
+                        is_admin = admin_role in interaction.user.roles if admin_role else False
                         is_owner = interaction.user.id == guild.owner_id
                         if not is_admin and not is_owner:
                             await interaction.response.send_message("❌ Only admins or the owner can cancel.", ephemeral=True)
@@ -168,7 +176,7 @@ async def ticket(interaction, order_text):
                         await archive_channel.send(embed=cancel_embed)
 
                 await channel.send(
-                    f"🎫 **Order Details:**\n```{self.order_text}```\n"
+                    f"🎫 **Order Details:**\n``````\n"
                     "To claim this order simple type 'order claimed' and amount which you can handle",
                     view=TicketControls()
                 )
@@ -184,7 +192,9 @@ async def ticket(interaction, order_text):
 
             @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
             async def cancel(self, interaction: discord.Interaction, button: Button):
-                if not discord.utils.get(interaction.user.roles, name="Administrator"):
+                # Check for administrator role by ID
+                admin_role = guild.get_role(ADMIN_ROLE_ID)
+                if not admin_role or admin_role not in interaction.user.roles:
                     await interaction.response.send_message("❌ You don't have permission.", ephemeral=True)
                     return
 
@@ -209,7 +219,7 @@ async def ticket(interaction, order_text):
             pass
 
 @bot.command()
-@commands.has_role("Administrator")
+@commands.has_role(ADMIN_ROLE_ID)  # Using role ID instead of name
 async def complete(ctx):
     archive_channel = bot.get_channel(TICKET_LOG_CHANNEL_ID)
     if not archive_channel:
